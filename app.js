@@ -2,6 +2,7 @@ const NEWS_URL = 'https://api.hnpwa.com/v0/news/{page}.json';
 const CONTENT_URL = 'https://hacker-news.firebaseio.com/v0/item/{id}.json';
 const initialPage = 1;
 const maxPage = 10;
+const OPENAI_API_KEY = 'your-api-key';
 
 export async function loadNews(rootElementParam, currentPage) {
   // Use passed element or try to find it in DOM
@@ -13,22 +14,70 @@ export async function loadNews(rootElementParam, currentPage) {
 
   const ul = document.createElement('ul');
 
-//   window.addEventListener('hashchange', async () => {
-//     const id = location.hash.substring(1);
-//     const summary = document.createElement('div');
-
-//     try {
-//         const response = await fetch(CONTENT_URL.replace('{id}', id));
-//         const content = await response.json();
-
-//         summary.innerHTML = `${content.title}<br><br>${content.content}`;
-//         rootElement.innerHTML = '';
-//         rootElement.appendChild(summary);
-//     } catch (error) {
-//         console.error('Error:', error);
-//         rootElement.innerHTML = 'Error loading content';   
-//     }
-//   })
+  window.addEventListener('hashchange', async () => {
+    const id = location.hash.substring(1);
+    const summary = document.createElement('div');
+    
+    try {
+      // Show loading state
+      rootElement.innerHTML = 'Loading...';
+      
+      // Fetch the item details
+      const response = await fetch(CONTENT_URL.replace('{id}', id));
+      const content = await response.json();
+      
+      // Create a back button
+      const backButton = document.createElement('button');
+      backButton.innerHTML = '← Back to News';
+      backButton.addEventListener('click', () => {
+        location.hash = '';
+        loadNews(rootElement, currentPage);
+      });
+      
+      // Prepare content for summarization
+      const textToSummarize = `
+        Title: ${content.title}
+        URL Content: ${content.url ? content.url : 'No URL'}
+        Comments: ${content.comments.map(c => c.content).join('\n')}
+      `;
+      
+      // Call OpenAI API for summarization
+      const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [{
+            role: "user",
+            content: `Please summarize this Hacker News post and its comments concisely:\n${textToSummarize}`
+          }]
+        })
+      });
+      
+      const summaryResult = await summaryResponse.json();
+      const summarizedContent = summaryResult.choices[0].message.content;
+      
+      // Display the summary
+      summary.innerHTML = `
+        <h2>${content.title}</h2>
+        <p><strong>Summary:</strong></p>
+        <p>${summarizedContent}</p>
+        <p><strong>Original URL:</strong> <a href="${content.url}" target="_blank">${content.url}</a></p>
+        <p><strong>Comments:</strong> ${content.comments_count}</p>
+      `;
+      
+      rootElement.innerHTML = '';
+      rootElement.appendChild(backButton);
+      rootElement.appendChild(summary);
+      
+    } catch (error) {
+      console.error('Error:', error);
+      rootElement.innerHTML = 'Error loading content';
+    }
+  });
   
   try {
     // Show loading state
