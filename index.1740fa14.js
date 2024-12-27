@@ -1,0 +1,2 @@
+async function e(e){let n=e||document.getElementById("root");if(!n)throw Error("Root element not found");let t=document.createElement("ul");try{n.innerHTML="Loading...";let e=await fetch("https://api.hnpwa.com/v0/news/1.json");(await e.json()).forEach(e=>{let n=document.createElement("li");n.innerHTML=e.title,t.appendChild(n)}),n.innerHTML="",n.appendChild(t)}catch(e){n.innerHTML="Error loading news feed",console.error("Error:",e)}}if("undefined"!=typeof window){let n=document.getElementById("root");n&&e(n)}
+//# sourceMappingURL=index.1740fa14.js.map
