@@ -1,7 +1,7 @@
 import { pipeline, env} from '@huggingface/transformers';
 
 const NEWS_URL = 'https://api.hnpwa.com/v0/news/{page}.json';
-const CONTENT_URL = 'https://hacker-news.firebaseio.com/v0/item/{id}.json';
+const CONTENT_URL = 'https://api.hnpwa.com/v0/item/{id}.json';
 const initialPage = 1;
 const maxPage = 10;
 
@@ -12,7 +12,7 @@ async function initializeSummarizer() {
     // Since we will download the model from the Hugging Face Hub, we can skip the local model check
     env.allowLocalModels = false;
     // Using a smaller model for better performance
-    summarizer = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+    summarizer = await pipeline('summarization', 'ahmedaeb/distilbart-cnn-6-6-optimised');
   } catch (error) {
     console.error('Failed to initialize summarizer:', error);
   }
