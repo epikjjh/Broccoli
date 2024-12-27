@@ -1,20 +1,38 @@
-import { pipeline, env} from '@huggingface/transformers';
-
 const NEWS_URL = 'https://api.hnpwa.com/v0/news/{page}.json';
 const CONTENT_URL = 'https://api.hnpwa.com/v0/item/{id}.json';
+const HF_API_URL = 'https://api-inference.huggingface.co/models/google/pegasus-xsum';
 const initialPage = 1;
 const maxPage = 10;
 
-// Initialize the pipeline
-let summarizer;
-async function initializeSummarizer() {
+async function summarizeText(text) {
   try {
-    // Since we will download the model from the Hugging Face Hub, we can skip the local model check
-    env.allowLocalModels = false;
-    // Using a smaller model for better performance
-    summarizer = await pipeline('summarization', 'ahmedaeb/distilbart-cnn-6-6-optimised');
+    const response = await fetch(HF_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        inputs: text,
+        parameters: {
+          max_length: 150,
+          min_length: 40,
+          length_penalty: 2.0,
+          num_beams: 4,
+          early_stopping: true
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get summary');
+    }
+
+    const result = await response.json();
+    return result[0].summary_text;
   } catch (error) {
-    console.error('Failed to initialize summarizer:', error);
+    console.error('Summarization error:', error);
+    return 'Failed to generate summary';
   }
 }
 
@@ -56,10 +74,8 @@ export async function loadNews(rootElementParam, currentPage) {
       `;
       
       // Use transformers.js for summarization
-      const result = await summarizer(textToSummarize, {
-        max_length: 150,
-        min_length: 30,
-      });
+      console.log(textToSummarize);
+      const result = await summarizeText(textToSummarize);
       
       const summarizedContent = result[0].summary_text;
       
@@ -131,7 +147,6 @@ export async function loadNews(rootElementParam, currentPage) {
 
 // Only call loadNews if we're in a browser environment
 if (typeof window !== 'undefined') {
-    initializeSummarizer();
     const rootElement = document.getElementById('root');
     if (rootElement) {
       loadNews(rootElement, 1);
