@@ -2,7 +2,20 @@ const NEWS_URL = 'https://api.hnpwa.com/v0/news/{page}.json';
 const CONTENT_URL = 'https://hacker-news.firebaseio.com/v0/item/{id}.json';
 const initialPage = 1;
 const maxPage = 10;
-const HF_ACCESS_TOKEN = 'your-huggingface-token';
+
+// Initialize the pipeline
+let summarizer;
+async function initializeSummarizer() {
+  try {
+    // Using a smaller model for better performance
+    summarizer = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+  } catch (error) {
+    console.error('Failed to initialize summarizer:', error);
+  }
+}
+
+// Initialize when the page loads
+initializeSummarizer();
 
 export async function loadNews(rootElementParam, currentPage) {
   // Use passed element or try to find it in DOM
@@ -38,30 +51,16 @@ export async function loadNews(rootElementParam, currentPage) {
       const textToSummarize = `
         Title: ${content.title}
         URL Content: ${content.url ? content.url : 'No URL'}
-        Comments: ${content.comments.map(c => c.content).join('\n')}
+        Comments: ${content.comments ? content.comments.map(c => c.content).join('\n') : 'No comments'}
       `;
       
-      // Call Hugging Face API for summarization
-      const summaryResponse = await fetch(
-        'https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6b',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${HF_ACCESS_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: textToSummarize,
-            parameters: {
-              max_length: 150,
-              min_length: 30,
-            }
-          })
-        }
-      );
+      // Use transformers.js for summarization
+      const result = await summarizer(textToSummarize, {
+        max_length: 150,
+        min_length: 30,
+      });
       
-      const summaryResult = await summaryResponse.json();
-      const summarizedContent = summaryResult[0].summary_text;
+      const summarizedContent = result[0].summary_text;
       
       // Display the summary
       summary.innerHTML = `
@@ -69,7 +68,7 @@ export async function loadNews(rootElementParam, currentPage) {
         <p><strong>Summary:</strong></p>
         <p>${summarizedContent}</p>
         <p><strong>Original URL:</strong> <a href="${content.url}" target="_blank">${content.url}</a></p>
-        <p><strong>Comments:</strong> ${content.comments_count}</p>
+        <p><strong>Comments:</strong> ${content.comments_count || 0}</p>
       `;
       
       rootElement.innerHTML = '';
