@@ -2,7 +2,7 @@ const NEWS_URL = 'https://api.hnpwa.com/v0/news/{page}.json';
 const CONTENT_URL = 'https://hacker-news.firebaseio.com/v0/item/{id}.json';
 const initialPage = 1;
 const maxPage = 10;
-const OPENAI_API_KEY = 'your-api-key';
+const HF_ACCESS_TOKEN = 'your-huggingface-token';
 
 export async function loadNews(rootElementParam, currentPage) {
   // Use passed element or try to find it in DOM
@@ -41,24 +41,27 @@ export async function loadNews(rootElementParam, currentPage) {
         Comments: ${content.comments.map(c => c.content).join('\n')}
       `;
       
-      // Call OpenAI API for summarization
-      const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [{
-            role: "user",
-            content: `Please summarize this Hacker News post and its comments concisely:\n${textToSummarize}`
-          }]
-        })
-      });
+      // Call Hugging Face API for summarization
+      const summaryResponse = await fetch(
+        'https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6b',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${HF_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: textToSummarize,
+            parameters: {
+              max_length: 150,
+              min_length: 30,
+            }
+          })
+        }
+      );
       
       const summaryResult = await summaryResponse.json();
-      const summarizedContent = summaryResult.choices[0].message.content;
+      const summarizedContent = summaryResult[0].summary_text;
       
       // Display the summary
       summary.innerHTML = `
