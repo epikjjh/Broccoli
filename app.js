@@ -4,38 +4,6 @@ const HF_API_URL = 'https://api-inference.huggingface.co/models/google/pegasus-x
 const initialPage = 1;
 const maxPage = 10;
 
-async function summarizeText(text) {
-  try {
-    const response = await fetch(HF_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        inputs: text,
-        parameters: {
-          max_length: 150,
-          min_length: 40,
-          length_penalty: 2.0,
-          num_beams: 4,
-          early_stopping: true
-        }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get summary');
-    }
-
-    const result = await response.json();
-    return result[0].summary_text;
-  } catch (error) {
-    console.error('Summarization error:', error);
-    return 'Failed to generate summary';
-  }
-}
-
 export async function loadNews(rootElementParam, currentPage) {
   // Use passed element or try to find it in DOM
   const rootElement = rootElementParam || document.getElementById('root');
@@ -46,58 +14,6 @@ export async function loadNews(rootElementParam, currentPage) {
 
   const ul = document.createElement('ul');
 
-  window.addEventListener('hashchange', async () => {
-    const id = location.hash.substring(1);
-    const summary = document.createElement('div');
-    
-    try {
-      // Show loading state
-      rootElement.innerHTML = 'Loading...';
-      
-      // Fetch the item details
-      const response = await fetch(CONTENT_URL.replace('{id}', id));
-      const content = await response.json();
-      
-      // Create a back button
-      const backButton = document.createElement('button');
-      backButton.innerHTML = '← Back to News';
-      backButton.addEventListener('click', () => {
-        location.hash = '';
-        loadNews(rootElement, currentPage);
-      });
-      
-      // Prepare content for summarization
-      const textToSummarize = `
-        Title: ${content.title}
-        URL Content: ${content.url ? content.url : 'No URL'}
-        Comments: ${content.comments ? content.comments.map(c => c.content).join('\n') : 'No comments'}
-      `;
-      
-      // Use transformers.js for summarization
-      console.log(textToSummarize);
-      const result = await summarizeText(textToSummarize);
-      
-      const summarizedContent = result[0].summary_text;
-      
-      // Display the summary
-      summary.innerHTML = `
-        <h2>${content.title}</h2>
-        <p><strong>Summary:</strong></p>
-        <p>${summarizedContent}</p>
-        <p><strong>Original URL:</strong> <a href="${content.url}" target="_blank">${content.url}</a></p>
-        <p><strong>Comments:</strong> ${content.comments_count || 0}</p>
-      `;
-      
-      rootElement.innerHTML = '';
-      rootElement.appendChild(backButton);
-      rootElement.appendChild(summary);
-      
-    } catch (error) {
-      console.error('Error:', error);
-      rootElement.innerHTML = 'Error loading content';
-    }
-  });
-  
   try {
     // Show loading state
     rootElement.innerHTML = 'Loading...';
@@ -148,10 +64,94 @@ export async function loadNews(rootElementParam, currentPage) {
   }
 }
 
+async function loadContent() {
+  const id = location.hash.substring(1);
+  const summary = document.createElement('div');
+  
+  try {
+    // Show loading state
+    rootElement.innerHTML = 'Loading...';
+    
+    // Fetch the item details
+    const response = await fetch(CONTENT_URL.replace('{id}', id));
+    const content = await response.json();
+    
+    // Create a back button
+    const backButton = document.createElement('button');
+    backButton.innerHTML = '← Back to News';
+    backButton.addEventListener('click', () => {
+      location.hash = '';
+      loadNews(rootElement, currentPage);
+    });
+    
+    // Prepare content for summarization
+    const textToSummarize = `
+      Title: ${content.title}
+      URL Content: ${content.url ? content.url : 'No URL'}
+      Comments: ${content.comments ? content.comments.map(c => c.content).join('\n') : 'No comments'}
+    `;
+    
+    // Use transformers.js for summarization
+    console.log(textToSummarize);
+    const result = await summarizeText(textToSummarize);
+    
+    const summarizedContent = result[0].summary_text;
+    
+    // Display the summary
+    summary.innerHTML = `
+      <h2>${content.title}</h2>
+      <p><strong>Summary:</strong></p>
+      <p>${summarizedContent}</p>
+      <p><strong>Original URL:</strong> <a href="${content.url}" target="_blank">${content.url}</a></p>
+      <p><strong>Comments:</strong> ${content.comments_count || 0}</p>
+    `;
+    
+    rootElement.innerHTML = '';
+    rootElement.appendChild(backButton);
+    rootElement.appendChild(summary);
+    
+  } catch (error) {
+    console.error('Error:', error);
+    rootElement.innerHTML = 'Error loading content';
+  }
+}
+
+async function summarizeText(text) {
+  try {
+    const response = await fetch(HF_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        inputs: text,
+        parameters: {
+          max_length: 150,
+          min_length: 40,
+          length_penalty: 2.0,
+          num_beams: 4,
+          early_stopping: true
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get summary');
+    }
+
+    const result = await response.json();
+    return result[0].summary_text;
+  } catch (error) {
+    console.error('Summarization error:', error);
+    return 'Failed to generate summary';
+  }
+}
 
 // Only call loadNews if we're in a browser environment
 if (typeof window !== 'undefined') {
     const rootElement = document.getElementById('root');
+    window.addEventListener('hashchange', loadContent);
     if (rootElement) {
       loadNews(rootElement, 1);
     }
