@@ -106,12 +106,16 @@ export async function loadNews(rootElementParam, currentPage) {
     const newsFeed = await response.json();
     
     newsFeed.forEach(item => {
-      const li = document.createElement('li');
-      const a = document.createElement('a');
-      a.href = `#${item.id}`;
-      a.innerHTML = `${item.title} (${item.comments_count})`;
-      li.appendChild(a);
-      ul.appendChild(li);
+      const div = document.createElement('div');
+
+      div.innerHTML = `
+        <li>
+          <a href="#${item.id}">
+            ${item.title} (${item.comments_count})
+          </a>
+        </li>
+      `;
+      ul.appendChild(div.firstElementChild);
     });
     
     // Clear loading state and show content
