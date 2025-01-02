@@ -4,12 +4,12 @@
   "description": "",
   "source": "index.html",
   "scripts": {
-    "start": "parcel index.html --no-cache",
-    "build": "npm run build:css && parcel build index.html --public-url ./",
     "test": "jest",
+    "start": "parcel index.html --no-cache",
+    "build:css": "tailwindcss -i ./input.css -o ./output.css",
+    "build": "npm run build:css && parcel build index.html --public-url ./",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist",
-    "build:css": "tailwindcss -i ./input.css -o ./output.css"
+    "deploy": "gh-pages -d dist"
   },
   "keywords": [],
   "author": "",
