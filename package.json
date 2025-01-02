@@ -5,11 +5,11 @@
   "source": "index.html",
   "scripts": {
     "start": "parcel index.html --no-cache",
-    "build": "parcel build index.html --public-url ./",
+    "build": "npm run build:css && parcel build index.html --public-url ./",
     "test": "jest",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "build:css": "tailwindcss -i ./input.css -o ./output.css --watch"
+    "build:css": "tailwindcss -i ./input.css -o ./output.css"
   },
   "keywords": [],
   "author": "",
