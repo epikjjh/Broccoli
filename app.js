@@ -43,7 +43,15 @@ async function loadNewsFeed(rootElementParam) {
   }
 
   const currentPage = pageInfo.currentPage;
-  const ul = document.createElement('ul');
+  let newsFeedList = [];
+  let template = `
+    <ul>
+      {{newsFeed}}
+    </ul>
+    <button class="prev-btn">Previous Page</button>
+    <span>Page ${currentPage} of ${pageInfo.maxPage}</span>
+    <button class="next-btn">Next Page</button>
+  `
 
   try {
     setLoading(rootElement, true);
@@ -52,51 +60,40 @@ async function loadNewsFeed(rootElementParam) {
     const newsFeed = await response.json();
     
     newsFeed.forEach(item => {
-      const div = document.createElement('div');
-
-      div.innerHTML = `
-        <li>
+      newsFeedList.push(
+        `<li>
           <a href="#item=${item.id}">
             ${item.title} (${item.comments_count})
           </a>
-        </li>
-      `;
-      ul.appendChild(div.firstElementChild);
+        </li>`
+      );
     });
     
-    // Clear loading state and show content
-    rootElement.innerHTML = '';
-    rootElement.appendChild(ul);
+    rootElement.innerHTML = template.replace('{{newsFeed}}', newsFeedList.join(''));
   } catch (error) {
-    rootElement.innerHTML = 'Error loading news feed';
     console.error('Error:', error);
-  } finally {
-    setLoading(rootElement, false);
-  }
+    rootElement.innerHTML = `Error loading news feed: ${error.message || 'Unknown error'}`;
+   }
+
+  const prevPageButton = rootElement.querySelector('.prev-btn');
+  const nextPageButton = rootElement.querySelector('.next-btn');
 
   if (currentPage > pageInfo.minPage) {
-    const prevPageButton = document.createElement('button');
-    prevPageButton.innerHTML = 'Previous Page';
     prevPageButton.addEventListener('click', () => {
       pageInfo.currentPage = currentPage - 1;
       location.hash = '#prevPage';
     });
-    rootElement.appendChild(prevPageButton);
+  } else {
+    prevPageButton.remove();
   }
 
-  // Add current page indicator
-  const pageIndicator = document.createElement('span');
-  pageIndicator.innerHTML = ` Page ${currentPage} of ${pageInfo.maxPage} `;
-  rootElement.appendChild(pageIndicator);
-
   if (currentPage < pageInfo.maxPage) {
-    const nextPageButton = document.createElement('button');
-    nextPageButton.innerHTML = 'Next Page';
     nextPageButton.addEventListener('click', () => {
       pageInfo.currentPage = currentPage + 1;
       location.hash = '#nextPage';
     });
-    rootElement.appendChild(nextPageButton);
+  } else {
+    nextPageButton.remove();
   }
 }
 
@@ -111,47 +108,39 @@ async function loadNewsMaterial(rootElementParam) {
   const newsId = location.hash.startsWith('#item=') 
     ? location.hash.substring(6)
     : null;
-
   if (!newsId) {
     throw new Error('Invalid news ID format');
   }
 
-  const div = document.createElement('div');
+  let template = `
+    <button class="back-btn">← Back to News</button>
+    <h1>{{title}}</h1>
+    {{url}}
+    <h2>Comments:</h2>
+    {{comments}}
+  `
   
   try {
     setLoading(rootElement, true); 
-    
     // Fetch the item details
     const response = await fetch(CONTENT_URL.replace('{id}', newsId));
     const content = await response.json();
-    
-    // Create a back button
-    const backButton = document.createElement('button');
-    backButton.innerHTML = '← Back to News';
-    backButton.addEventListener('click', () => {
-      location.hash = '';
-    });
-    
-    div.innerHTML = `
-      <h1>${content.title}</h1>
-      ${content.url ? `<p><a href="${content.url}" target="_blank">Visit Story</a></p>` : ''}
-      <h2>Comments:</h2>
-      ${content.comments.length > 0 ? 
-        `<ul>${content.comments.map(c => `<li>${c.content}</li>`).join('')}</ul>` 
-        : '<p>No comments yet</p>'
-      }
-    `;
-    
-    rootElement.innerHTML = '';
-    rootElement.appendChild(backButton);
-    rootElement.appendChild(div);
-    
+
+    template = template.replace('{{title}}', content.title);
+    template = template.replace('{{url}}', content.url ? `<p><a href="${content.url}" target="_blank">Visit Story</a></p>` : '');
+    rootElement.innerHTML = template.replace('{{comments}}', content.comments.length > 0 ? 
+      `<ul>${content.comments.map(c => `<li>${c.content}</li>`).join('')}</ul>` 
+      : '<p>No comments yet</p>'
+    );
   } catch (error) {
     console.error('Error:', error);
     rootElement.innerHTML = `Error loading content: ${error.message || 'Unknown error'}`;
-  } finally {
-    setLoading(rootElement, false);
   }
+
+  const backButton = rootElement.querySelector('.back-btn');
+  backButton.addEventListener('click', () => {
+    location.hash = '';
+  });
 }
 
 function setLoading(rootElement, isLoading) {
