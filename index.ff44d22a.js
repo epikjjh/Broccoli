@@ -1,0 +1,12 @@
+async function e(e){try{let t=await fetch("https://api-inference.huggingface.co/models/facebook/bart-large-cnn",{method:"POST",headers:{Authorization:"Bearer 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","Content-Type":"application/json"},body:JSON.stringify({inputs:e,parameters:{max_length:150,min_length:40,length_penalty:2,num_beams:4,early_stopping:!0}})});if(!t.ok)throw Error("Failed to get summary");return(await t.json())[0].summary_text}catch(e){return console.error("Summarization error:",e),"Failed to generate summary"}}async function t(n,o){let r=n||document.getElementById("root");if(!r)throw Error("Root element not found");let a=document.createElement("ul");window.addEventListener("hashchange",async()=>{let n=location.hash.substring(1),a=document.createElement("div");try{r.innerHTML="Loading...";let i=await fetch("https://api.hnpwa.com/v0/item/{id}.json".replace("{id}",n)),l=await i.json(),c=document.createElement("button");c.innerHTML="← Back to News",c.addEventListener("click",()=>{location.hash="",t(r,o)});let m=`
+        Title: ${l.title}
+        URL Content: ${l.url?l.url:"No URL"}
+        Comments: ${l.comments?l.comments.map(e=>e.content).join("\n"):"No comments"}
+      `;console.log(m);let d=(await e(m))[0].summary_text;a.innerHTML=`
+        <h2>${l.title}</h2>
+        <p><strong>Summary:</strong></p>
+        <p>${d}</p>
+        <p><strong>Original URL:</strong> <a href="${l.url}" target="_blank">${l.url}</a></p>
+        <p><strong>Comments:</strong> ${l.comments_count||0}</p>
+      `,r.innerHTML="",r.appendChild(c),r.appendChild(a)}catch(e){console.error("Error:",e),r.innerHTML="Error loading content"}});try{r.innerHTML="Loading...";let e=await fetch("https://api.hnpwa.com/v0/news/{page}.json".replace("{page}",o));(await e.json()).forEach(e=>{let t=document.createElement("li"),n=document.createElement("a");n.href=`#${e.id}`,n.innerHTML=`${e.title} (${e.comments_count})`,t.appendChild(n),a.appendChild(t)}),r.innerHTML="",r.appendChild(a)}catch(e){r.innerHTML="Error loading news feed",console.error("Error:",e)}if(o>1){let e=document.createElement("button");e.innerHTML="Previous Page",e.addEventListener("click",()=>{t(r,--o)}),r.appendChild(e)}if(o<10){let e=document.createElement("button");e.innerHTML="Next Page",e.addEventListener("click",()=>{t(r,++o)}),r.appendChild(e)}}if("undefined"!=typeof window){let e=document.getElementById("root");e&&t(e,1)}
+//# sourceMappingURL=index.ff44d22a.js.map
