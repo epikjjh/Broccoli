@@ -681,12 +681,14 @@ async function loadNewsMaterial(rootElementParam) {
     const newsId = location.hash.startsWith('#item=') ? location.hash.substring(6) : null;
     if (!newsId) throw new Error('Invalid news ID format');
     let template = `
-    <div class="container mx-auto p-4">
+    <div class="container mx-auto p-4 max-w-4xl">
       <button class="back-btn bg-blue-500 text-white px-4 py-2 rounded-md mb-4">\u{2190} Back to News</button>
       <h1 class="text-2xl font-bold mb-4">{{title}}</h1>
       {{url}}
       <h2 class="text-xl font-bold mb-4">Comments:</h2>
-      {{comments}}
+      <ul class="comments-container">
+        {{comments}}
+      </ul>
     </div>
   `;
     try {
@@ -696,7 +698,7 @@ async function loadNewsMaterial(rootElementParam) {
         const content = await response.json();
         template = template.replace('{{title}}', content.title);
         template = template.replace('{{url}}', content.url ? `<p class="mb-4 text-m text-gray-500"><a href="${content.url}" target="_blank">Visit Story</a></p>` : '');
-        rootElement.innerHTML = template.replace('{{comments}}', content.comments.length > 0 ? `<ul>${content.comments.map((c)=>`<li class="my-2 p-2 rounded-md">${c.content}</li>`).join('')}</ul>` : '<p class="text-m text-gray-500">No comments yet</p>');
+        rootElement.innerHTML = template.replace('{{comments}}', content.comments.length > 0 ? makeCommentTree(content.comments) : '<p class="text-m text-gray-500">No comments yet</p>');
     } catch (error) {
         console.error('Error:', error);
         rootElement.innerHTML = `Error loading content: ${error.message || 'Unknown error'}`;
@@ -705,6 +707,25 @@ async function loadNewsMaterial(rootElementParam) {
     backButton.addEventListener('click', ()=>{
         location.hash = '';
     });
+}
+function makeCommentTree(comments, depth = 0) {
+    const commentTree = [];
+    comments.forEach((comment)=>{
+        commentTree.push(`
+      <div style="padding-left: ${depth * 20}px;" class="comment my-6 bg-gray-50 p-2 rounded-lg">
+       <div class="text-sm text-gray-500 mb-2 flex items-center gap-2">
+            <span class="font-medium">${comment.user || 'Anonymous'}</span>
+            <span class="text-gray-300">\u{2022}</span>
+            <span>${new Date(comment.time * 1000).toLocaleString()}</span>
+          </div>
+          <div class="prose prose-sm">
+            ${comment.content}
+          </div> 
+      </div>
+    `);
+        if (comment.comments.length > 0) commentTree.push(makeCommentTree(comment.comments, depth + 1));
+    });
+    return commentTree.join('');
 }
 function setLoading(rootElement, isLoading) {
     if (isLoading) rootElement.innerHTML = 'Loading...';
