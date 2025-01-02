@@ -45,12 +45,12 @@ async function loadNewsFeed(rootElementParam) {
   const currentPage = pageInfo.currentPage;
   let newsFeedList = [];
   let template = `
-    <ul>
+    <ul class="news-feed mx-auto p-4">
       {{newsFeed}}
     </ul>
-    <button class="prev-btn">Previous Page</button>
-    <span>Page ${currentPage} of ${pageInfo.maxPage}</span>
-    <button class="next-btn">Next Page</button>
+    <button class="prev-btn mx-auto my-4 bg-blue-500 text-white px-4 py-2 rounded-md">Previous Page</button>
+    <span class="page-info text-center my-4 text-sm text-gray-500 px-4 py-2">Page ${currentPage} of ${pageInfo.maxPage}</span>
+    <button class="next-btn mx-auto my-4 bg-blue-500 text-white px-4 py-2 rounded-md">Next Page</button>
   `
 
   try {
@@ -61,7 +61,7 @@ async function loadNewsFeed(rootElementParam) {
     
     newsFeed.forEach(item => {
       newsFeedList.push(
-        `<li>
+        `<li class="item my-2 p-2 rounded-md">
           <a href="#item=${item.id}">
             ${item.title} (${item.comments_count})
           </a>
@@ -113,11 +113,13 @@ async function loadNewsMaterial(rootElementParam) {
   }
 
   let template = `
-    <button class="back-btn">← Back to News</button>
-    <h1>{{title}}</h1>
-    {{url}}
-    <h2>Comments:</h2>
-    {{comments}}
+    <div class="container mx-auto p-4">
+      <button class="back-btn bg-blue-500 text-white px-4 py-2 rounded-md mb-4">← Back to News</button>
+      <h1 class="text-2xl font-bold mb-4">{{title}}</h1>
+      {{url}}
+      <h2 class="text-xl font-bold mb-4">Comments:</h2>
+      {{comments}}
+    </div>
   `
   
   try {
@@ -127,10 +129,10 @@ async function loadNewsMaterial(rootElementParam) {
     const content = await response.json();
 
     template = template.replace('{{title}}', content.title);
-    template = template.replace('{{url}}', content.url ? `<p><a href="${content.url}" target="_blank">Visit Story</a></p>` : '');
+    template = template.replace('{{url}}', content.url ? `<p class="mb-4 text-m text-gray-500"><a href="${content.url}" target="_blank">Visit Story</a></p>` : '');
     rootElement.innerHTML = template.replace('{{comments}}', content.comments.length > 0 ? 
-      `<ul>${content.comments.map(c => `<li>${c.content}</li>`).join('')}</ul>` 
-      : '<p>No comments yet</p>'
+      `<ul>${content.comments.map(c => `<li class="my-2 p-2 rounded-md">${c.content}</li>`).join('')}</ul>` 
+      : '<p class="text-m text-gray-500">No comments yet</p>'
     );
   } catch (error) {
     console.error('Error:', error);
