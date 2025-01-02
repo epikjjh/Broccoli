@@ -1,22 +1,52 @@
 const NEWS_URL = 'https://api.hnpwa.com/v0/news/{page}.json';
 const CONTENT_URL = 'https://api.hnpwa.com/v0/item/{id}.json';
-const HF_API_URL = 'https://api-inference.huggingface.co/models/google/pegasus-xsum';
-const initialPage = 1;
-const maxPage = 10;
+const pageInfo = {
+  currentPage: 1,
+  minPage: 1,
+  maxPage: 10,
+}
 
-export async function loadNews(rootElementParam, currentPage) {
+export { loadNewsFeed, loadNewsMaterial, routePage, setLoading };
+
+// Only call loadNews if we're in a browser environment
+if (typeof window !== 'undefined') {
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    window.addEventListener('hashchange', () => routePage(rootElement));
+    loadNewsFeed(rootElement);
+  }
+}
+
+function routePage(rootElementParam) {
   // Use passed element or try to find it in DOM
   const rootElement = rootElementParam || document.getElementById('root');
-
   if (!rootElement) {
     throw new Error('Root element not found');
   }
 
+  if (location.hash === '' || location.hash === '#prevPage' || location.hash === '#nextPage') {
+    location.hash = '';
+    loadNewsFeed(rootElementParam);
+  } else if (location.hash.startsWith('#item')) {
+    loadNewsMaterial(rootElementParam);
+  } else {
+    rootElement.innerHTML = 'Error: Invalid route';
+    console.error('Invalid hash:', location.hash);  
+  }
+}
+
+async function loadNewsFeed(rootElementParam) {
+  // Use passed element or try to find it in DOM
+  const rootElement = rootElementParam || document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Root element not found');
+  }
+
+  const currentPage = pageInfo.currentPage;
   const ul = document.createElement('ul');
 
   try {
-    // Show loading state
-    rootElement.innerHTML = 'Loading...';
+    setLoading(rootElement, true);
     
     const response = await fetch(NEWS_URL.replace('{page}', currentPage));
     const newsFeed = await response.json();
@@ -26,7 +56,7 @@ export async function loadNews(rootElementParam, currentPage) {
 
       div.innerHTML = `
         <li>
-          <a href="#${item.id}">
+          <a href="#item=${item.id}">
             ${item.title} (${item.comments_count})
           </a>
         </li>
@@ -37,43 +67,62 @@ export async function loadNews(rootElementParam, currentPage) {
     // Clear loading state and show content
     rootElement.innerHTML = '';
     rootElement.appendChild(ul);
-    
   } catch (error) {
     rootElement.innerHTML = 'Error loading news feed';
     console.error('Error:', error);
+  } finally {
+    setLoading(rootElement, false);
   }
 
-  if (currentPage > initialPage) {
+  if (currentPage > pageInfo.minPage) {
     const prevPageButton = document.createElement('button');
     prevPageButton.innerHTML = 'Previous Page';
     prevPageButton.addEventListener('click', () => {
-      currentPage--;
-      loadNews(rootElement, currentPage);
+      pageInfo.currentPage = currentPage - 1;
+      location.hash = '#prevPage';
     });
     rootElement.appendChild(prevPageButton);
   }
 
-  if (currentPage < maxPage) {
+  // Add current page indicator
+  const pageIndicator = document.createElement('span');
+  pageIndicator.innerHTML = ` Page ${currentPage} of ${pageInfo.maxPage} `;
+  rootElement.appendChild(pageIndicator);
+
+  if (currentPage < pageInfo.maxPage) {
     const nextPageButton = document.createElement('button');
     nextPageButton.innerHTML = 'Next Page';
     nextPageButton.addEventListener('click', () => {
-      currentPage++;
-      loadNews(rootElement, currentPage);
+      pageInfo.currentPage = currentPage + 1;
+      location.hash = '#nextPage';
     });
     rootElement.appendChild(nextPageButton);
   }
 }
 
-async function loadContent() {
-  const id = location.hash.substring(1);
-  const summary = document.createElement('div');
+async function loadNewsMaterial(rootElementParam) {
+   // Use passed element or try to find it in DOM
+  const rootElement = rootElementParam || document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Root element not found');
+  }
+
+  // Extract newsId from the hash
+  const newsId = location.hash.startsWith('#item=') 
+    ? location.hash.substring(6)
+    : null;
+
+  if (!newsId) {
+    throw new Error('Invalid news ID format');
+  }
+
+  const div = document.createElement('div');
   
   try {
-    // Show loading state
-    rootElement.innerHTML = 'Loading...';
+    setLoading(rootElement, true); 
     
     // Fetch the item details
-    const response = await fetch(CONTENT_URL.replace('{id}', id));
+    const response = await fetch(CONTENT_URL.replace('{id}', newsId));
     const content = await response.json();
     
     // Create a back button
@@ -81,78 +130,32 @@ async function loadContent() {
     backButton.innerHTML = '← Back to News';
     backButton.addEventListener('click', () => {
       location.hash = '';
-      loadNews(rootElement, currentPage);
     });
     
-    // Prepare content for summarization
-    const textToSummarize = `
-      Title: ${content.title}
-      URL Content: ${content.url ? content.url : 'No URL'}
-      Comments: ${content.comments ? content.comments.map(c => c.content).join('\n') : 'No comments'}
-    `;
-    
-    // Use transformers.js for summarization
-    console.log(textToSummarize);
-    const result = await summarizeText(textToSummarize);
-    
-    const summarizedContent = result[0].summary_text;
-    
-    // Display the summary
-    summary.innerHTML = `
-      <h2>${content.title}</h2>
-      <p><strong>Summary:</strong></p>
-      <p>${summarizedContent}</p>
-      <p><strong>Original URL:</strong> <a href="${content.url}" target="_blank">${content.url}</a></p>
-      <p><strong>Comments:</strong> ${content.comments_count || 0}</p>
+    div.innerHTML = `
+      <h1>${content.title}</h1>
+      ${content.url ? `<p><a href="${content.url}" target="_blank">Visit Story</a></p>` : ''}
+      <h2>Comments:</h2>
+      ${content.comments.length > 0 ? 
+        `<ul>${content.comments.map(c => `<li>${c.content}</li>`).join('')}</ul>` 
+        : '<p>No comments yet</p>'
+      }
     `;
     
     rootElement.innerHTML = '';
     rootElement.appendChild(backButton);
-    rootElement.appendChild(summary);
+    rootElement.appendChild(div);
     
   } catch (error) {
     console.error('Error:', error);
-    rootElement.innerHTML = 'Error loading content';
+    rootElement.innerHTML = `Error loading content: ${error.message || 'Unknown error'}`;
+  } finally {
+    setLoading(rootElement, false);
   }
 }
 
-async function summarizeText(text) {
-  try {
-    const response = await fetch(HF_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.HUGGING_FACE_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        inputs: text,
-        parameters: {
-          max_length: 150,
-          min_length: 40,
-          length_penalty: 2.0,
-          num_beams: 4,
-          early_stopping: true
-        }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get summary');
-    }
-
-    const result = await response.json();
-    return result[0].summary_text;
-  } catch (error) {
-    console.error('Summarization error:', error);
-    return 'Failed to generate summary';
+function setLoading(rootElement, isLoading) {
+  if (isLoading) {
+    rootElement.innerHTML = 'Loading...';
   }
-}
-
-// Only call loadNews if we're in a browser environment
-if (typeof window !== 'undefined') {
-    const rootElement = document.getElementById('root');
-    window.addEventListener('hashchange', loadContent);
-    if (rootElement) {
-      loadNews(rootElement, 1);
-    }
 }
