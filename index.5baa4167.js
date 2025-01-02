@@ -599,6 +599,9 @@ function hmrAccept(bundle /*: ParcelRequire */ , id /*: string */ ) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "loadNewsFeed", ()=>loadNewsFeed);
+parcelHelpers.export(exports, "loadNewsMaterial", ()=>loadNewsMaterial);
+parcelHelpers.export(exports, "routePage", ()=>routePage);
+parcelHelpers.export(exports, "setLoading", ()=>setLoading);
 const NEWS_URL = 'https://api.hnpwa.com/v0/news/{page}.json';
 const CONTENT_URL = 'https://api.hnpwa.com/v0/item/{id}.json';
 const pageInfo = {
@@ -606,97 +609,6 @@ const pageInfo = {
     minPage: 1,
     maxPage: 10
 };
-function setLoading(rootElement, isLoading) {
-    if (isLoading) rootElement.innerHTML = 'Loading...';
-}
-async function loadNewsFeed(rootElementParam) {
-    // Use passed element or try to find it in DOM
-    const rootElement = rootElementParam || document.getElementById('root');
-    if (!rootElement) throw new Error('Root element not found');
-    const currentPage = pageInfo.currentPage;
-    const ul = document.createElement('ul');
-    try {
-        setLoading(rootElement, true);
-        const response = await fetch(NEWS_URL.replace('{page}', currentPage));
-        const newsFeed = await response.json();
-        newsFeed.forEach((item)=>{
-            const div = document.createElement('div');
-            div.innerHTML = `
-        <li>
-          <a href="#item=${item.id}">
-            ${item.title} (${item.comments_count})
-          </a>
-        </li>
-      `;
-            ul.appendChild(div.firstElementChild);
-        });
-        // Clear loading state and show content
-        rootElement.innerHTML = '';
-        rootElement.appendChild(ul);
-    } catch (error) {
-        rootElement.innerHTML = 'Error loading news feed';
-        console.error('Error:', error);
-    } finally{
-        setLoading(rootElement, false);
-    }
-    if (currentPage > pageInfo.minPage) {
-        const prevPageButton = document.createElement('button');
-        prevPageButton.innerHTML = 'Previous Page';
-        prevPageButton.addEventListener('click', ()=>{
-            pageInfo.currentPage = currentPage - 1;
-            location.hash = '#prevPage';
-        });
-        rootElement.appendChild(prevPageButton);
-    }
-    // Add current page indicator
-    const pageIndicator = document.createElement('span');
-    pageIndicator.innerHTML = ` Page ${currentPage} of ${pageInfo.maxPage} `;
-    rootElement.appendChild(pageIndicator);
-    if (currentPage < pageInfo.maxPage) {
-        const nextPageButton = document.createElement('button');
-        nextPageButton.innerHTML = 'Next Page';
-        nextPageButton.addEventListener('click', ()=>{
-            pageInfo.currentPage = currentPage + 1;
-            location.hash = '#nextPage';
-        });
-        rootElement.appendChild(nextPageButton);
-    }
-}
-async function loadNewsMaterial(rootElementParam) {
-    // Use passed element or try to find it in DOM
-    const rootElement = rootElementParam || document.getElementById('root');
-    if (!rootElement) throw new Error('Root element not found');
-    // Extract newsId from the hash
-    const newsId = location.hash.startsWith('#item=') ? location.hash.substring(6) : null;
-    if (!newsId) throw new Error('Invalid news ID format');
-    const div = document.createElement('div');
-    try {
-        setLoading(rootElement, true);
-        // Fetch the item details
-        const response = await fetch(CONTENT_URL.replace('{id}', newsId));
-        const content = await response.json();
-        // Create a back button
-        const backButton = document.createElement('button');
-        backButton.innerHTML = "\u2190 Back to News";
-        backButton.addEventListener('click', ()=>{
-            location.hash = '';
-        });
-        div.innerHTML = `
-      <h1>${content.title}</h1>
-      ${content.url ? `<p><a href="${content.url}" target="_blank">Visit Story</a></p>` : ''}
-      <h2>Comments:</h2>
-      ${content.comments.length > 0 ? `<ul>${content.comments.map((c)=>`<li>${c.content}</li>`).join('')}</ul>` : '<p>No comments yet</p>'}
-    `;
-        rootElement.innerHTML = '';
-        rootElement.appendChild(backButton);
-        rootElement.appendChild(div);
-    } catch (error) {
-        console.error('Error:', error);
-        rootElement.innerHTML = `Error loading content: ${error.message || 'Unknown error'}`;
-    } finally{
-        setLoading(rootElement, false);
-    }
-}
 // Only call loadNews if we're in a browser environment
 if (typeof window !== 'undefined') {
     const rootElement = document.getElementById('root');
@@ -717,6 +629,85 @@ function routePage(rootElementParam) {
         rootElement.innerHTML = 'Error: Invalid route';
         console.error('Invalid hash:', location.hash);
     }
+}
+async function loadNewsFeed(rootElementParam) {
+    // Use passed element or try to find it in DOM
+    const rootElement = rootElementParam || document.getElementById('root');
+    if (!rootElement) throw new Error('Root element not found');
+    const currentPage = pageInfo.currentPage;
+    let newsFeedList = [];
+    let template = `
+    <ul class="news-feed mx-auto p-4">
+      {{newsFeed}}
+    </ul>
+    <button class="prev-btn mx-auto my-4 bg-blue-500 text-white px-4 py-2 rounded-md">Previous Page</button>
+    <span class="page-info text-center my-4 text-sm text-gray-500 px-4 py-2">Page ${currentPage} of ${pageInfo.maxPage}</span>
+    <button class="next-btn mx-auto my-4 bg-blue-500 text-white px-4 py-2 rounded-md">Next Page</button>
+  `;
+    try {
+        setLoading(rootElement, true);
+        const response = await fetch(NEWS_URL.replace('{page}', currentPage));
+        const newsFeed = await response.json();
+        newsFeed.forEach((item)=>{
+            newsFeedList.push(`<li class="item my-2 p-2 rounded-md">
+          <a href="#item=${item.id}">
+            ${item.title} (${item.comments_count})
+          </a>
+        </li>`);
+        });
+        rootElement.innerHTML = template.replace('{{newsFeed}}', newsFeedList.join(''));
+    } catch (error) {
+        console.error('Error:', error);
+        rootElement.innerHTML = `Error loading news feed: ${error.message || 'Unknown error'}`;
+    }
+    const prevPageButton = rootElement.querySelector('.prev-btn');
+    const nextPageButton = rootElement.querySelector('.next-btn');
+    if (currentPage > pageInfo.minPage) prevPageButton.addEventListener('click', ()=>{
+        pageInfo.currentPage = currentPage - 1;
+        location.hash = '#prevPage';
+    });
+    else prevPageButton.remove();
+    if (currentPage < pageInfo.maxPage) nextPageButton.addEventListener('click', ()=>{
+        pageInfo.currentPage = currentPage + 1;
+        location.hash = '#nextPage';
+    });
+    else nextPageButton.remove();
+}
+async function loadNewsMaterial(rootElementParam) {
+    // Use passed element or try to find it in DOM
+    const rootElement = rootElementParam || document.getElementById('root');
+    if (!rootElement) throw new Error('Root element not found');
+    // Extract newsId from the hash
+    const newsId = location.hash.startsWith('#item=') ? location.hash.substring(6) : null;
+    if (!newsId) throw new Error('Invalid news ID format');
+    let template = `
+    <div class="container mx-auto p-4">
+      <button class="back-btn bg-blue-500 text-white px-4 py-2 rounded-md mb-4">\u{2190} Back to News</button>
+      <h1 class="text-2xl font-bold mb-4">{{title}}</h1>
+      {{url}}
+      <h2 class="text-xl font-bold mb-4">Comments:</h2>
+      {{comments}}
+    </div>
+  `;
+    try {
+        setLoading(rootElement, true);
+        // Fetch the item details
+        const response = await fetch(CONTENT_URL.replace('{id}', newsId));
+        const content = await response.json();
+        template = template.replace('{{title}}', content.title);
+        template = template.replace('{{url}}', content.url ? `<p class="mb-4 text-m text-gray-500"><a href="${content.url}" target="_blank">Visit Story</a></p>` : '');
+        rootElement.innerHTML = template.replace('{{comments}}', content.comments.length > 0 ? `<ul>${content.comments.map((c)=>`<li class="my-2 p-2 rounded-md">${c.content}</li>`).join('')}</ul>` : '<p class="text-m text-gray-500">No comments yet</p>');
+    } catch (error) {
+        console.error('Error:', error);
+        rootElement.innerHTML = `Error loading content: ${error.message || 'Unknown error'}`;
+    }
+    const backButton = rootElement.querySelector('.back-btn');
+    backButton.addEventListener('click', ()=>{
+        location.hash = '';
+    });
+}
+function setLoading(rootElement, isLoading) {
+    if (isLoading) rootElement.innerHTML = 'Loading...';
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"gkKU3":[function(require,module,exports,__globalThis) {
