@@ -7,7 +7,7 @@
     "test": "jest",
     "start": "parcel index.html --no-cache",
     "build:css": "tailwindcss -i ./input.css -o ./output.css",
-    "build": "npm run build:css && parcel build index.html --public-url ./",
+    "build": "npm run build:css && parcel build index.html --public-url /broccoli/",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
